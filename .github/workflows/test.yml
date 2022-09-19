@@ -1,0 +1,47 @@
+name: test
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    env:
+      ENVIRONMENT: test
+      ACTIONS_STEP_DEBUG: false
+      AWS_DEFAULT_REGION: ap-northeast-1
+      TEST_RDS_PASS: ${{ secrets.TEST_RDS_PASS }}
+      TEST_RABBIT_PASS: ${{ secrets.TEST_RABBIT_PASS }}
+      DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+    permissions:
+      id-token: write
+      contents: read    # This is required for actions/checkout  
+
+    steps:
+      - name: Git clone the repository
+        uses: actions/checkout@v3
+      - name: configure aws credentials  
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::762006128434:role/vcl-oidc-role
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+          role-session-name: OIDCSession
+
+      - uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.1.9
+      - name: removing terraform wrapper
+        run: mv ${TERRAFORM_CLI_PATH}/terraform-bin ${TERRAFORM_CLI_PATH}/terraform || true
+
+      - name: Show aws-cli version
+        run: aws --version
+
+      - name: terraform deploy
+        run: |
+          export TF_VAR_pg_password=${TEST_RDS_PASS}
+          export TF_VAR_rabbit_password=${TEST_RABBIT_PASS}
+          export TF_VAR_datadog_api_key=${DATADOG_API_KEY}
+          cd ${GITHUB_WORKSPACE}/${ENVIRONMENT}
+          terraform init
+          terraform plan -compact-warnings -out=tfplan
+          terraform apply "tfplan"

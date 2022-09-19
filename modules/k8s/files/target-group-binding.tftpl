@@ -1,0 +1,12 @@
+apiVersion: elbv2.k8s.aws/v1beta1
+kind: TargetGroupBinding
+metadata:
+  name: ${tgb_name}
+  namespace: ${namespace}
+spec:
+  ipAddressType: ipv4
+  serviceRef:
+    name: ${service_name}
+    port: ${service_port}
+  targetGroupARN: ${target_group_arn}
+  targetType: ip

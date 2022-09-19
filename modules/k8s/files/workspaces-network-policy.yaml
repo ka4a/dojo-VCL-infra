@@ -1,0 +1,29 @@
+apiVersion: projectcalico.org/v3
+kind: GlobalNetworkPolicy
+metadata:
+  name: workspaces
+spec:
+  selector: has(student) && has(workspace_allocation) && has(assignment)
+  types:
+    - Ingress
+    - Egress
+  ingress:
+    - action: Allow
+      source:
+        selector: app.kubernetes.io/instance == "traefik"
+        namespaceSelector: kubernetes.io/metadata.name == "vcl-system"
+    - action: Allow
+      source:
+        selector: app == "workspaces-activity"
+        namespaceSelector: kubernetes.io/metadata.name == "vcl-core"
+  egress:
+    - action: Allow
+      protocol: UDP
+      destination:
+        selector: 'k8s-app == "kube-dns"'
+        ports:
+          - 53
+    - action: Deny
+      destination:
+        namespaceSelector: all()
+    - action: Allow

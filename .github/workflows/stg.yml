@@ -1,0 +1,45 @@
+name: stg
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    env:
+      ENVIRONMENT: stg
+      ACTIONS_STEP_DEBUG: false
+      AWS_DEFAULT_REGION: ap-northeast-1
+      STAGING_RDS_PASS: ${{ secrets.STAGING_RDS_PASS }}
+      STAGING_RABBIT_PASS: ${{ secrets.STAGING_RABBIT_PASS }}
+    permissions:
+      id-token: write
+      contents: read    # This is required for actions/checkout  
+  
+    steps:
+      - name: Git clone the repository
+        uses: actions/checkout@v3
+      - name: configure aws credentials  
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          role-to-assume: arn:aws:iam::762006128434:role/vcl-oidc-role
+          aws-region: ${{ env.AWS_DEFAULT_REGION }}
+          role-session-name: OIDCSession
+          
+      - uses: hashicorp/setup-terraform@v1
+        with:
+          terraform_version: 1.1.9
+      - name: removing terraform wrapper
+        run: mv ${TERRAFORM_CLI_PATH}/terraform-bin ${TERRAFORM_CLI_PATH}/terraform || true
+
+      - name: Show aws-cli version
+        run: aws --version
+
+      - name: terraform deploy
+        run: |
+          export TF_VAR_pg_password=${STAGING_RDS_PASS}
+          export TF_VAR_rabbit_password=${STAGING_RABBIT_PASS}
+          cd ${GITHUB_WORKSPACE}/${ENVIRONMENT}
+          terraform init
+          terraform plan -compact-warnings -out=tfplan
+          terraform apply "tfplan"
